@@ -65,10 +65,10 @@ import Database.Odpi.LibDpi
 
 data DpiConversionError
   = DpiConversionError NativeValue QueryInfo String
+  deriving Show
 
-instance Exception DpiConversionError
-instance Show DpiConversionError where
-  show (DpiConversionError v qi hs) = unlines
+instance Exception DpiConversionError where
+  displayException (DpiConversionError v qi hs) = unlines
     [ "Conversion error:"
     , "  value: " ++ show v
     , "  fetched from column: " ++ show qi
