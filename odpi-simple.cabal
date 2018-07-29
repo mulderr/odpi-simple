@@ -1,21 +1,21 @@
-name:                odpi-simple
-version:             0.1.0.0
-synopsis:            Mid-level ODPI-C wrapper
-description:         Convenience wrappers and utility functions around odpi-libdpi.
-license:             BSD3
-license-file:        LICENSE
-author:              Maciej Kazulak
-maintainer:          kazulakm@gmail.com
+name:                 odpi-simple
+version:              0.1.0.0
+synopsis:             Mid-level ODPI-C wrapper
+description:          Convenience wrappers and utility functions around odpi-libdpi.
+license:              BSD3
+license-file:         LICENSE
+author:               Maciej Kazulak
+maintainer:           kazulakm@gmail.com
 -- copyright:           
-category:            Database
-build-type:          Simple
-extra-source-files:  ChangeLog.md
-cabal-version:       >=1.10
+category:             Database
+build-type:           Simple
+extra-source-files:   ChangeLog.md
+cabal-version:        >=1.10
 
 library
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  ghc-options:         -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  hs-source-dirs:     src
+  default-language:   Haskell2010
+  ghc-options:        -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
   exposed-modules:
       Database.Odpi     
     , Database.Odpi.Context

@@ -33,7 +33,10 @@ class FromRow a where
   fromRow :: Statement -> IO a
 
 field :: FromField a => Statement -> Word32 -> IO a
-field s i = stmtGetQueryValue s i >>= fromField
+field s i = do
+  qi <- stmtGetQueryInfo s i
+  v <- stmtGetQueryValue s i
+  fromField qi v
 
 defineValuesForRow :: forall a. FromRow a => Proxy a -> Statement -> IO ()
 defineValuesForRow p s = do

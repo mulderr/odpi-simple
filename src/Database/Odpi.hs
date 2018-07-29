@@ -41,6 +41,7 @@ module Database.Odpi
   , Lib.Visibility (..)
 
   -- * Public Structures
+  , Lib.QueryInfo
   , Lib.IntervalDs
   , Lib.IntervalYm
   , Lib.Timestamp

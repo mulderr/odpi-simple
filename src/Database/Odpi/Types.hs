@@ -46,8 +46,6 @@ instance HasContext Var where
 
 data DpiException
   = DpiException ErrorInfo
-  | DpiConversionError String
-  | DpiStringException String
   deriving Show
 
 instance Exception DpiException
