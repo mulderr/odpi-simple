@@ -204,6 +204,11 @@ instance FromField (Exactly Int32) where
   fromField i v = convError "Exactly Int32" i v
   nativeTypeFor _ = Just NativeTypeInt64
 
+instance FromField (Exactly Int64) where
+  fromField _ (NativeInt64 x) = pure $ Exactly x
+  fromField i v = convError "Exactly Int64" i v
+  nativeTypeFor _ = Just NativeTypeInt64
+
 instance FromField (Exactly Word) where
   fromField _ (NativeUint64 x) = pure $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Word" i v
@@ -217,5 +222,10 @@ instance FromField (Exactly Word16) where
 instance FromField (Exactly Word32) where
   fromField _ (NativeUint64 x) = pure $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Word32" i v
+  nativeTypeFor _ = Just NativeTypeUint64
+
+instance FromField (Exactly Word64) where
+  fromField _ (NativeUint64 x) = pure $ Exactly x
+  fromField i v = convError "Exactly Word64" i v
   nativeTypeFor _ = Just NativeTypeUint64
 
