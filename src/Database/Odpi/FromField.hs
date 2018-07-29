@@ -78,12 +78,14 @@ instance Exception DpiConversionError where
 convError :: String -> QueryInfo -> NativeValue -> IO a
 convError s i v = throwIO $ DpiConversionError v i s
 
-fromIntegralField :: Num b => String -> Int16 -> Int8 -> QueryInfo -> NativeValue -> IO b
-fromIntegralField tyName maxPrec scale i v =
-  f v maxPrec scale
+fromIntegralField :: Num b => String -> Int16 -> QueryInfo -> NativeValue -> IO b
+fromIntegralField tyName maxPrec i v = do
+  let colPrec = dataTypeInfo_precision $ queryInfo_typeInfo i
+      colScale = dataTypeInfo_scale $ queryInfo_typeInfo i
+  f v colPrec colScale
   where
-    f (NativeInt64 x) p s | p <= 9 && s == 0 = pure $ fromIntegral x
-    f (NativeUint64 x) p s | p <= 9 && s == 0 = pure $ fromIntegral x
+    f (NativeInt64 x) p s | p <= maxPrec && s == 0 = pure $ fromIntegral x
+    f (NativeUint64 x) p s | p <= maxPrec && s == 0 = pure $ fromIntegral x
     f _ _ _ = convError tyName i v
 
 -- | A type that may be converted from dpiData
@@ -116,26 +118,26 @@ wordDecimalPrec :: Int16
 wordDecimalPrec = truncate $ (logBase 10 $ realToFrac (maxBound :: Word) :: Double)
 
 instance FromField Int where
-  fromField i v = fromIntegralField "Int" intDecimalPrec 0 i v
+  fromField = fromIntegralField "Int" intDecimalPrec
 
 instance FromField Int16 where
-  fromField = fromIntegralField "Int16" 4 0
+  fromField = fromIntegralField "Int16" 4
 
 instance FromField Int32 where
-  fromField = fromIntegralField "Int32" 9 0
+  fromField = fromIntegralField "Int32" 9
 
 instance FromField Int64 where
   fromField _ (NativeInt64 x) = pure x
   fromField i v = convError "Int64" i v
 
 instance FromField Word where
-  fromField i v = fromIntegralField "Word" wordDecimalPrec 0 i v
+  fromField = fromIntegralField "Word" wordDecimalPrec
 
 instance FromField Word16 where
-  fromField = fromIntegralField "Word16" 4 0
+  fromField = fromIntegralField "Word16" 4
 
 instance FromField Word32 where
-  fromField = fromIntegralField "Word32" 9 0
+  fromField = fromIntegralField "Word32" 9
 
 instance FromField Word64 where
   fromField _ (NativeUint64 x) = pure x
