@@ -8,8 +8,9 @@
 
 module Database.Odpi.FromRow where
 
-import Data.Functor.Identity
+import Control.Exception (throwIO)
 import Data.Proxy
+import Data.Tuple.Only
 import Data.Word
 
 import Database.Odpi.FromField
@@ -36,7 +37,11 @@ field :: FromField a => Statement -> Word32 -> IO a
 field s i = do
   qi <- stmtGetQueryInfo s i
   v <- stmtGetQueryValue s i
-  fromField qi v
+  r <- fromField qi v
+  case r of
+    Ok a -> pure a
+    Errors (e:_) -> throwIO e
+    Errors _ -> error "empty exception list for Errors"
 
 defineValuesForRow :: forall a. FromRow a => Proxy a -> Statement -> IO ()
 defineValuesForRow p s = do
@@ -57,9 +62,9 @@ defineValueForTy s i ty = do
                            (dataTypeInfo_objectType ti)
   pure ()
 
-instance (FromField a) => FromRow (Identity a) where
+instance (FromField a) => FromRow (Only a) where
   rowRep _ = [AF (Proxy @a)]
-  fromRow s = Identity <$> field s 1
+  fromRow s = Only <$> field s 1
 
 instance (FromField a, FromField b) => FromRow (a, b) where
   rowRep _ = [AF (Proxy @a), AF (Proxy @b)]

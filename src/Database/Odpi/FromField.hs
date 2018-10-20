@@ -4,6 +4,7 @@
   , FlexibleInstances
   , StandaloneDeriving
   , GeneralizedNewtypeDeriving
+  , DeriveFunctor
 #-}
 -- | Conversions from ODPI-C NativeValue to Haskell types.
 --
@@ -63,6 +64,12 @@ import Data.Time.LocalTime
 import Database.Odpi.NativeValue
 import Database.Odpi.LibDpi
 
+data Ok a = Errors [SomeException] | Ok !a
+  deriving(Show, Functor)
+
+pureOk :: a -> IO (Ok a)
+pureOk = pure . Ok
+
 data DpiConversionError
   = DpiConversionError NativeValue QueryInfo String
   deriving Show
@@ -75,39 +82,40 @@ instance Exception DpiConversionError where
     , "  cannot be safely converted to Haskell type: " ++ hs
     ]
 
-convError :: String -> QueryInfo -> NativeValue -> IO a
-convError s i v = throwIO $ DpiConversionError v i s
+convError :: String -> QueryInfo -> NativeValue -> IO (Ok a)
+convError s i v = pure $ Errors [SomeException $ DpiConversionError v i s]
 
-fromIntegralField :: Num b => String -> Int16 -> QueryInfo -> NativeValue -> IO b
+fromIntegralField :: Num b => String -> Int16 -> QueryInfo -> NativeValue -> IO (Ok b)
 fromIntegralField tyName maxPrec i v = do
   let colPrec = dataTypeInfo_precision $ queryInfo_typeInfo i
       colScale = dataTypeInfo_scale $ queryInfo_typeInfo i
   f v colPrec colScale
   where
-    f (NativeInt64 x) p s | p <= maxPrec && s == 0 = pure $ fromIntegral x
-    f (NativeUint64 x) p s | p <= maxPrec && s == 0 = pure $ fromIntegral x
+    f (NativeInt64 x) p s | p <= maxPrec && s == 0 = pureOk $ fromIntegral x
+    f (NativeUint64 x) p s | p <= maxPrec && s == 0 = pureOk $ fromIntegral x
     f _ _ _ = convError tyName i v
 
 -- | A type that may be converted from dpiData
 class FromField a where
-  fromField :: QueryInfo -> NativeValue -> IO a
+  fromField :: QueryInfo -> NativeValue -> IO (Ok a)
   nativeTypeFor :: Proxy a -> Maybe NativeTypeNum
   nativeTypeFor _ = Nothing
 
 instance FromField Bool where
-  fromField _ (NativeBool b) = pure b
+  fromField _ (NativeBool b) = pureOk b
   fromField i v = convError "Bool" i v
 
 instance FromField Char where
-  fromField _ (NativeBytes b) = pure $ B8.head b
+  fromField _ (NativeBytes b) = pureOk $ B8.head b
   fromField i v = convError "Char" i v
 
 instance FromField ByteString where
-  fromField _ (NativeBytes b) = pure b
+  fromField _ (NativeBytes b) = pureOk b
   fromField i v = convError "ByteString" i v
 
 instance FromField T.Text where
-  fromField i = fmap TE.decodeUtf8 . fromField i
+  fromField _ (NativeBytes b) = pureOk $ TE.decodeUtf8 b
+  fromField i v = convError "Text" i v
 
 -- Int is rather vague by definition:
 -- A fixed-precision integer type with at least the range [-2^29 .. 2^29-1]
@@ -127,7 +135,7 @@ instance FromField Int32 where
   fromField = fromIntegralField "Int32" 9
 
 instance FromField Int64 where
-  fromField _ (NativeInt64 x) = pure x
+  fromField _ (NativeInt64 x) = pureOk x
   fromField i v = convError "Int64" i v
 
 instance FromField Word where
@@ -140,28 +148,28 @@ instance FromField Word32 where
   fromField = fromIntegralField "Word32" 9
 
 instance FromField Word64 where
-  fromField _ (NativeUint64 x) = pure x
+  fromField _ (NativeUint64 x) = pureOk x
   fromField i v = convError "Word64" i v
 
 instance FromField Integer where
-  fromField _ (NativeInt64 x) = pure $ fromIntegral x
-  fromField _ (NativeUint64 x) = pure $ fromIntegral x
+  fromField _ (NativeInt64 x) = pureOk $ fromIntegral x
+  fromField _ (NativeUint64 x) = pureOk $ fromIntegral x
   fromField i v = convError "Integer" i v
 
 instance FromField Float where
-  fromField _ (NativeFloat x) = pure x
+  fromField _ (NativeFloat x) = pureOk x
   fromField i v = convError "Float" i v
 
 instance FromField Double where
-  fromField _ (NativeDouble x) = pure x
-  fromField _ (NativeFloat x) = pure $ realToFrac x
+  fromField _ (NativeDouble x) = pureOk x
+  fromField _ (NativeFloat x) = pureOk $ realToFrac x
   fromField i v = convError "Double" i v
 
 -- | Scientific is fetched as bytes which is the only way to preserve full precision of
 -- Oracle NUMBER type. Beware of using it haphazardly as this incures a performance
 -- penalty. Always use Double unless you really need additional precision.
 instance FromField Scientific where
-  fromField _ (NativeBytes x) = pure $ read $ B8.unpack x
+  fromField _ (NativeBytes x) = pureOk $ read $ B8.unpack x
   fromField i v = convError "Scientific" i v
   nativeTypeFor _ = Just NativeTypeBytes
 
@@ -175,12 +183,12 @@ instance FromField LocalTime where
         t = TimeOfDay (fromIntegral $ timestamp_hour x)
                       (fromIntegral $ timestamp_minute x)
                       (sec + fsec)
-    pure $ LocalTime d t
+    pureOk $ LocalTime d t
   fromField i v = convError "LocalTime" i v
 
 instance FromField a => FromField (Maybe a) where
-  fromField _ (NativeNull _) = pure Nothing
-  fromField i v = Just <$> fromField i v
+  fromField _ (NativeNull _) = pureOk Nothing
+  fromField i v = fmap Just <$> fromField i v
   nativeTypeFor _ = nativeTypeFor (Proxy :: Proxy a)
 
 -- | A wrapper to provide truncating instances for number types that
@@ -192,42 +200,42 @@ deriving instance Real a => Real (Exactly a)
 deriving instance Integral a => Integral (Exactly a)
 
 instance FromField (Exactly Int) where
-  fromField _ (NativeInt64 x) = pure $ Exactly $ fromIntegral x
+  fromField _ (NativeInt64 x) = pureOk $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Int" i v
   nativeTypeFor _ = Just NativeTypeInt64
 
 instance FromField (Exactly Int16) where
-  fromField _ (NativeInt64 x) = pure $ Exactly $ fromIntegral x
+  fromField _ (NativeInt64 x) = pureOk $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Int16" i v
   nativeTypeFor _ = Just NativeTypeInt64
 
 instance FromField (Exactly Int32) where
-  fromField _ (NativeInt64 x) = pure $ Exactly $ fromIntegral x
+  fromField _ (NativeInt64 x) = pureOk $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Int32" i v
   nativeTypeFor _ = Just NativeTypeInt64
 
 instance FromField (Exactly Int64) where
-  fromField _ (NativeInt64 x) = pure $ Exactly x
+  fromField _ (NativeInt64 x) = pureOk $ Exactly x
   fromField i v = convError "Exactly Int64" i v
   nativeTypeFor _ = Just NativeTypeInt64
 
 instance FromField (Exactly Word) where
-  fromField _ (NativeUint64 x) = pure $ Exactly $ fromIntegral x
+  fromField _ (NativeUint64 x) = pureOk $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Word" i v
   nativeTypeFor _ = Just NativeTypeUint64
 
 instance FromField (Exactly Word16) where
-  fromField _ (NativeUint64 x) = pure $ Exactly $ fromIntegral x
+  fromField _ (NativeUint64 x) = pureOk $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Word16" i v
   nativeTypeFor _ = Just NativeTypeUint64
 
 instance FromField (Exactly Word32) where
-  fromField _ (NativeUint64 x) = pure $ Exactly $ fromIntegral x
+  fromField _ (NativeUint64 x) = pureOk $ Exactly $ fromIntegral x
   fromField i v = convError "Exactly Word32" i v
   nativeTypeFor _ = Just NativeTypeUint64
 
 instance FromField (Exactly Word64) where
-  fromField _ (NativeUint64 x) = pure $ Exactly x
+  fromField _ (NativeUint64 x) = pureOk $ Exactly x
   fromField i v = convError "Exactly Word64" i v
   nativeTypeFor _ = Just NativeTypeUint64
 
