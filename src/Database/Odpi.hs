@@ -50,11 +50,15 @@ module Database.Odpi
   , isDataNull
 
   , OdpiConf (..)
+
+  -- * Re-exports
+  , Only (..)
   ) where
 
 import Control.Exception (bracket)
 import Data.ByteString (ByteString)
 import Data.Proxy
+import Data.Tuple.Only
 
 import qualified Database.Odpi.LibDpi as Lib
 import Database.Odpi.Context
