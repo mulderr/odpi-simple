@@ -48,6 +48,8 @@ module Database.Odpi
 
   , Lib.PtrData
   , isDataNull
+
+  , OdpiConf (..)
   ) where
 
 import Control.Exception (bracket)
