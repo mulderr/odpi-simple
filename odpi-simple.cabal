@@ -1,5 +1,5 @@
 name:                 odpi-simple
-version:              0.1.0.0
+version:              0.2.0.0
 synopsis:             Mid-level ODPI-C wrapper
 description:          Convenience wrappers and utility functions around odpi-libdpi.
 license:              BSD3
@@ -32,7 +32,7 @@ library
       base             >= 4.7    && < 5.0
     , bytestring       >= 0.10   && < 0.11
     , hashable         >= 1.1    && < 1.3
-    , odpi-libdpi      >= 0.1    && < 0.2
+    , odpi-libdpi      >= 0.1    && < 0.3
     , Only             >= 0.1    && < 0.2
     , text             >= 1.0    && < 1.3
     , time             >= 1.6    && < 1.10
